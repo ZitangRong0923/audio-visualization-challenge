@@ -54,7 +54,8 @@ interface AsteroidBody {
 
 const COLORS = {
   bg: '#0a0a0a',
-  sun: ['#8B4513', '#A0522D', '#704214'],  // Deep orangey-brown, Trisolaran signal style
+  sun: ['#FF4500', '#FF6347', '#FF5722'],  // Bright orange-red, burning star
+  sunGlowColors: ['#FF8C00', '#FF7700', '#FF6600'],  // Warm glow for burning effect
   planets: ['#1a4d5c', '#2a5f6f', '#1d3f52', '#0d2e42', '#1f3a4a', '#2a4a5a', '#1a3a4a', '#254555'],  // Deep cyans and blues
   particles: ['#7fb3d5', '#6ab3d5', '#5a9fb5'],  // Cool subtle blues
   hud: '#00d4ff',  // Cooler cyan
@@ -62,8 +63,8 @@ const COLORS = {
 }
 
 const CONFIG = {
-  sunMaxRadius: 40,
-  sunMinRadius: 25,
+  sunMaxRadius: 65,  // Larger sun
+  sunMinRadius: 45,  // Larger base
   planetCount: 7,
   maxParticles: 200,
   asteroidCount: 60,
@@ -488,16 +489,17 @@ const drawSun = (
   // Update glow
   state.sunGlow = lerp(state.sunGlow, lowFreq, 0.1)
 
-  // Draw outer glow - cool deep blue glow
+  // Draw outer glow - warm orange-red glow for burning star
   if (state.sunGlow > 0.05) {
-    for (let i = 4; i >= 1; i--) {
-      const alpha = (state.sunGlow * (5 - i)) / 20
-      ctx.fillStyle = `rgba(100, 150, 200, ${alpha})`  // Cool blue glow
+    for (let i = 6; i >= 1; i--) {
+      const alpha = (state.sunGlow * (7 - i)) / 35
+      const glowColor = COLORS.sunGlowColors[Math.floor(lowFreq * 2)]
+      ctx.fillStyle = glowColor + Math.floor(alpha * 255).toString(16).padStart(2, '0')
       ctx.beginPath()
       ctx.arc(
         Math.floor(cx),
         Math.floor(cy),
-        state.sunSize + i * 6,
+        state.sunSize + i * 8,
         0,
         Math.PI * 2
       )
@@ -505,41 +507,51 @@ const drawSun = (
     }
   }
 
-  // Draw sun body with pixel style
+  // Draw sun body with orange-red color and burning texture
   const baseColor = COLORS.sun[Math.floor(lowFreq * 2)]
   drawPixelFilledCircle(ctx, cx, cy, Math.floor(state.sunSize), baseColor)
 
-  // Draw sun rays (thicker pixel-style rays) - cool tone
-  ctx.fillStyle = '#8B6914'  // Deep amber, Trisolaran signal style
-  const rayCount = 12
-  for (let i = 0; i < rayCount; i++) {
-    const angle = (i / rayCount) * Math.PI * 2
-    const rayLength = 15
-    const rayThickness = 4
+  // Draw burning surface texture - turbulent chromosphere effect
+  // Multiple layers of varying opacity to simulate natural burning
+  for (let layer = 0; layer < 3; layer++) {
+    const layerSeed = layer * 1337
+    const spotCount = 20 + layer * 15
+    const maxSpotSize = 8 - layer * 2
 
-    // Draw thick ray as set of pixels
-    for (let r = 0; r < rayLength; r++) {
-      const dist = state.sunSize + r
-      for (let t = -Math.ceil(rayThickness / 2); t <= Math.ceil(rayThickness / 2); t++) {
-        const rx = Math.cos(angle) * dist + Math.sin(angle) * t
-        const ry = Math.sin(angle) * dist - Math.cos(angle) * t
-        ctx.fillRect(
-          Math.floor(cx + rx),
-          Math.floor(cy + ry),
-          1,
-          1
-        )
-      }
+    for (let i = 0; i < spotCount; i++) {
+      const seed = layerSeed + i * 73
+      const angle = ((seed * 89) % 360) * (Math.PI / 180)
+      const distance = ((seed * 131) % (state.sunSize * 0.8))
+      const spotSize = 1 + ((seed * 17) % maxSpotSize)
+      const opacity = 0.15 + ((seed * 43) % 50) / 100
+
+      const spotX = cx + Math.cos(angle) * distance
+      const spotY = cy + Math.sin(angle) * distance
+
+      // Dark spots (cooler regions)
+      ctx.fillStyle = `rgba(139, 69, 19, ${opacity})`
+      ctx.fillRect(Math.floor(spotX - spotSize / 2), Math.floor(spotY - spotSize / 2), spotSize, spotSize)
     }
   }
 
-  // Draw sunspots (noise pattern)
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-  for (let i = 0; i < 5; i++) {
-    const angle = state.elapsedTime * 0.3 + i
-    const spotX = Math.floor(cx + Math.cos(angle) * (state.sunSize * 0.4))
-    const spotY = Math.floor(cy + Math.sin(angle) * (state.sunSize * 0.4))
-    ctx.fillRect(spotX - 2, spotY - 2, 4, 4)
+  // Animated flares - simulate active burning regions
+  for (let i = 0; i < 4; i++) {
+    const angle = state.elapsedTime * (0.5 + i * 0.2) + i
+    const distance = state.sunSize * (0.5 + Math.sin(state.elapsedTime * 0.8 + i) * 0.3)
+    const flareX = cx + Math.cos(angle) * distance
+    const flareY = cy + Math.sin(angle) * distance
+    const flareSize = 6 + Math.sin(state.elapsedTime * 2 + i) * 3
+
+    // Bright flare
+    ctx.fillStyle = `rgba(255, 200, 0, ${0.4 + Math.sin(state.elapsedTime * 3 + i) * 0.2})`
+    for (let x = -flareSize; x <= flareSize; x++) {
+      for (let y = -flareSize; y <= flareSize; y++) {
+        const d = Math.sqrt(x * x + y * y)
+        if (d <= flareSize) {
+          ctx.fillRect(Math.floor(flareX + x), Math.floor(flareY + y), 1, 1)
+        }
+      }
+    }
   }
 }
 

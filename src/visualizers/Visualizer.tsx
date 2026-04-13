@@ -54,11 +54,11 @@ interface AsteroidBody {
 
 const COLORS = {
   bg: '#0a0a0a',
-  sun: ['#FFD700', '#FF8C00', '#FF4500'],
-  planets: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#87CEEB', '#FF7675'],
-  particles: ['#FFFFFF', '#E0E0FF', '#B0B0FF'],
-  hud: '#00FF41',
-  ripple: '#FF00FF80',
+  sun: ['#8B4513', '#A0522D', '#704214'],  // Deep orangey-brown, Trisolaran signal style
+  planets: ['#1a4d5c', '#2a5f6f', '#1d3f52', '#0d2e42', '#1f3a4a', '#2a4a5a', '#1a3a4a', '#254555'],  // Deep cyans and blues
+  particles: ['#7fb3d5', '#6ab3d5', '#5a9fb5'],  // Cool subtle blues
+  hud: '#00d4ff',  // Cooler cyan
+  aurora: ['#1abc9c', '#16a085', '#2980b9', '#3498db', '#8e44ad', '#9b59b6'],  // Aurora colors
 }
 
 const CONFIG = {
@@ -279,7 +279,8 @@ const drawBackgroundStars = (
       const flicker = avgFreq > 0.1 ? Math.sin(time * 4 + i * 2) * 0.5 + 0.5 : twinkle
 
       const alpha = (baseAlpha + flicker * 0.4) * (0.5 + avgFreq * 0.5)
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(alpha, 1)})`
+      // Cool blue-cyan stars for Trisolaran aesthetic
+      ctx.fillStyle = `rgba(120, 160, 200, ${Math.min(alpha, 1)})`
       ctx.fillRect(Math.floor(x), Math.floor(y), size, size)
     }
   }
@@ -288,7 +289,7 @@ const drawBackgroundStars = (
 const drawOrbits = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => {
   const orbitRadii = [100, 150, 200, 270, 330, 380, 420]
 
-  ctx.strokeStyle = 'rgba(100, 150, 200, 0.3)'
+  ctx.strokeStyle = 'rgba(60, 100, 140, 0.4)'  // Deeper cooler orbit lines
   ctx.lineWidth = 1
 
   for (const r of orbitRadii) {
@@ -339,7 +340,7 @@ const drawAsteroids = (
       ast.y = cy + Math.sin(angle) * r
     }
 
-    ctx.fillStyle = 'rgba(150, 150, 150, 0.8)'
+    ctx.fillStyle = 'rgba(80, 120, 140, 0.7)'  // Cool blue-grey asteroids
     ctx.fillRect(Math.floor(ast.x), Math.floor(ast.y), ast.size, ast.size)
   }
 }
@@ -368,7 +369,7 @@ const updateAndDrawRipples = (
     }
   }
 
-  // Draw and update ripples
+  // Draw and update ripples as aurora effect
   for (let i = state.ripples.length - 1; i >= 0; i--) {
     const ripple = state.ripples[i]
     ripple.age += 1 / 60
@@ -381,22 +382,42 @@ const updateAndDrawRipples = (
     const progress = ripple.age / ripple.maxAge
     ripple.radius = 10 + progress * (ripple.maxRadius - 10)
 
-    ctx.strokeStyle = COLORS.ripple
-    ctx.lineWidth = 2
+    // Draw aurora effect with irregular rings
+    const ringCount = 8
+    for (let ringIdx = 0; ringIdx < ringCount; ringIdx++) {
+      const ringRadius = ripple.radius - (ringIdx * ripple.radius / ringCount)
+      const colorIdx = ringIdx % COLORS.aurora.length
 
-    // Draw as pixel octagon/square spiral
-    const size = ripple.radius
-    ctx.beginPath()
-    ctx.moveTo(cx + size, cy)
-    ctx.lineTo(cx + size, cy + size)
-    ctx.lineTo(cx, cy + size)
-    ctx.lineTo(cx - size, cy + size)
-    ctx.lineTo(cx - size, cy)
-    ctx.lineTo(cx - size, cy - size)
-    ctx.lineTo(cx, cy - size)
-    ctx.lineTo(cx + size, cy - size)
-    ctx.closePath()
-    ctx.stroke()
+      // Fade out as ripple expands
+      const alpha = (1 - progress) * (1 - ringIdx / ringCount) * 0.6
+      ctx.strokeStyle = COLORS.aurora[colorIdx] + Math.floor(alpha * 255).toString(16).padStart(2, '0')
+      ctx.lineWidth = 2 + ringIdx * 0.5
+
+      // Draw irregular aurora ring with wave distortion
+      const segmentCount = Math.ceil(ringRadius * 3)
+      ctx.beginPath()
+
+      for (let seg = 0; seg <= segmentCount; seg++) {
+        const angle = (seg / segmentCount) * Math.PI * 2
+
+        // Add wave distortion based on progress and time
+        const waveAmplitude = Math.sin(progress * Math.PI) * 15
+        const waveFreq = 4
+        const distortion = Math.sin(angle * waveFreq + state.elapsedTime * 2) * waveAmplitude
+
+        const x = cx + Math.cos(angle) * (ringRadius + distortion)
+        const y = cy + Math.sin(angle) * (ringRadius + distortion)
+
+        if (seg === 0) {
+          ctx.moveTo(x, y)
+        } else {
+          ctx.lineTo(x, y)
+        }
+      }
+
+      ctx.closePath()
+      ctx.stroke()
+    }
   }
 }
 
@@ -467,11 +488,11 @@ const drawSun = (
   // Update glow
   state.sunGlow = lerp(state.sunGlow, lowFreq, 0.1)
 
-  // Draw outer glow
+  // Draw outer glow - cool deep blue glow
   if (state.sunGlow > 0.05) {
     for (let i = 4; i >= 1; i--) {
       const alpha = (state.sunGlow * (5 - i)) / 20
-      ctx.fillStyle = `rgba(255, 200, 0, ${alpha})`
+      ctx.fillStyle = `rgba(100, 150, 200, ${alpha})`  // Cool blue glow
       ctx.beginPath()
       ctx.arc(
         Math.floor(cx),
@@ -488,8 +509,8 @@ const drawSun = (
   const baseColor = COLORS.sun[Math.floor(lowFreq * 2)]
   drawPixelFilledCircle(ctx, cx, cy, Math.floor(state.sunSize), baseColor)
 
-  // Draw sun rays (thicker pixel-style rays)
-  ctx.fillStyle = '#FF8C00'
+  // Draw sun rays (thicker pixel-style rays) - cool tone
+  ctx.fillStyle = '#8B6914'  // Deep amber, Trisolaran signal style
   const rayCount = 12
   for (let i = 0; i < rayCount; i++) {
     const angle = (i / rayCount) * Math.PI * 2

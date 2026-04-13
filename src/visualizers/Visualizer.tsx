@@ -76,6 +76,26 @@ const CONFIG = {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * Math.min(Math.max(t, 0), 1)
 
+const drawPixelFilledCircle = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  color: string
+) => {
+  const r2 = r * r
+  ctx.fillStyle = color
+
+  for (let y = -Math.ceil(r); y <= Math.ceil(r); y++) {
+    for (let x = -Math.ceil(r); x <= Math.ceil(r); x++) {
+      const d2 = x * x + y * y
+      if (d2 <= r2) {
+        ctx.fillRect(Math.floor(cx + x), Math.floor(cy + y), 1, 1)
+      }
+    }
+  }
+}
+
 
 const getFrequencyValue = (
   freqData: Uint8Array,
@@ -413,31 +433,21 @@ const updateAndDrawPlanets = (
     if (planet.glowIntensity > 0.1) {
       ctx.fillStyle = `rgba(200, 200, 255, ${planet.glowIntensity * 0.3})`
       const glowRadius = planet.radius + 8
-      ctx.beginPath()
-      ctx.arc(Math.floor(planet.x), Math.floor(planet.y), glowRadius, 0, Math.PI * 2)
-      ctx.fill()
+      drawPixelFilledCircle(ctx, planet.x, planet.y, glowRadius, ctx.fillStyle)
     }
 
-    // Draw planet
-    ctx.fillStyle = planet.color
-    ctx.beginPath()
-    ctx.arc(Math.floor(planet.x), Math.floor(planet.y), planet.radius, 0, Math.PI * 2)
-    ctx.fill()
+    // Draw planet with pixel style
+    drawPixelFilledCircle(ctx, planet.x, planet.y, Math.ceil(planet.radius), planet.color)
 
-    // Draw ring
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + planet.glowIntensity * 0.4})`
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.ellipse(
-      Math.floor(planet.x),
-      Math.floor(planet.y),
-      planet.radius * 1.6,
-      planet.radius * 0.4,
-      planet.angle,
-      0,
-      Math.PI * 2
-    )
-    ctx.stroke()
+    // Draw ring using pixel dots
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + planet.glowIntensity * 0.5})`
+    const ringSegments = Math.ceil(planet.radius * 4)
+    for (let seg = 0; seg < ringSegments; seg++) {
+      const ringAngle = (seg / ringSegments) * Math.PI * 2
+      const ringX = planet.x + Math.cos(ringAngle) * planet.radius * 1.6
+      const ringY = planet.y + Math.sin(ringAngle) * planet.radius * 0.4
+      ctx.fillRect(Math.floor(ringX), Math.floor(ringY), 2, 1)
+    }
   }
 }
 
@@ -474,28 +484,32 @@ const drawSun = (
     }
   }
 
-  // Draw sun body with color gradient based on energy
+  // Draw sun body with pixel style
   const baseColor = COLORS.sun[Math.floor(lowFreq * 2)]
-  ctx.fillStyle = baseColor
-  ctx.beginPath()
-  ctx.arc(Math.floor(cx), Math.floor(cy), Math.floor(state.sunSize), 0, Math.PI * 2)
-  ctx.fill()
+  drawPixelFilledCircle(ctx, cx, cy, Math.floor(state.sunSize), baseColor)
 
-  // Draw sun rays (sawtooth pattern for pixel style)
-  ctx.strokeStyle = '#FF8C00'
-  ctx.lineWidth = 2
+  // Draw sun rays (thicker pixel-style rays)
+  ctx.fillStyle = '#FF8C00'
   const rayCount = 12
   for (let i = 0; i < rayCount; i++) {
     const angle = (i / rayCount) * Math.PI * 2
-    const x1 = Math.floor(cx + Math.cos(angle) * state.sunSize)
-    const y1 = Math.floor(cy + Math.sin(angle) * state.sunSize)
-    const x2 = Math.floor(cx + Math.cos(angle) * (state.sunSize + 15))
-    const y2 = Math.floor(cy + Math.sin(angle) * (state.sunSize + 15))
+    const rayLength = 15
+    const rayThickness = 4
 
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
+    // Draw thick ray as set of pixels
+    for (let r = 0; r < rayLength; r++) {
+      const dist = state.sunSize + r
+      for (let t = -Math.ceil(rayThickness / 2); t <= Math.ceil(rayThickness / 2); t++) {
+        const rx = Math.cos(angle) * dist + Math.sin(angle) * t
+        const ry = Math.sin(angle) * dist - Math.cos(angle) * t
+        ctx.fillRect(
+          Math.floor(cx + rx),
+          Math.floor(cy + ry),
+          1,
+          1
+        )
+      }
+    }
   }
 
   // Draw sunspots (noise pattern)
